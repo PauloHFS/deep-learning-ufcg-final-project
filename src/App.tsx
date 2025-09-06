@@ -71,7 +71,7 @@ function App() {
   };
 
   return (
-    <main className="bg-background min-h-screen w-full flex flex-col items-center justify-center p-4 overflow-hidden">
+    <main className="bg-background min-h-screen w-full flex flex-col items-center justify-center p-4">
       <AnimatePresence mode="wait">
         {status === 'initializing' && (
           <motion.div

@@ -20,9 +20,7 @@ const Camera = ({ onCapture, onClose }: CameraProps) => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: { exact: facingMode },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
+            facingMode: { ideal: facingMode },
           },
         });
         if (videoRef.current) {
@@ -69,7 +67,7 @@ const Camera = ({ onCapture, onClose }: CameraProps) => {
   };
 
   return (
-    <div className="relative w-screen h-screen bg-black">
+    <div className="relative w-full h-full bg-black">
       {error ? (
         <div className="z-10 flex flex-col items-center justify-center h-full text-white text-center p-4">
           <p>{error}</p>
@@ -82,7 +80,7 @@ const Camera = ({ onCapture, onClose }: CameraProps) => {
       {isFlashing && <div className="absolute inset-0 bg-white opacity-70" />}
 
       {!error && (
-        <div className="absolute inset-0 flex flex-col justify-between p-4">
+        <div className="absolute inset-0 flex flex-col justify-between p-4 z-10">
           {/* Controles Superiores */}
           <div className="flex justify-end">
             <button onClick={onClose} className="bg-black/50 rounded-full p-2 text-white">
@@ -91,15 +89,18 @@ const Camera = ({ onCapture, onClose }: CameraProps) => {
           </div>
 
           {/* Controles Inferiores */}
-          <div className="flex justify-center items-center gap-x-8">
-            <div className="w-16 h-16" /> {/* Placeholder */}
-            
-            {/* Botão do Obturador */}
-            <button onClick={handleCapture} className="w-20 h-20 rounded-full bg-white/30 ring-4 ring-white flex items-center justify-center">
-              <div className="w-16 h-16 rounded-full bg-white" />
-            </button>
+          <div className="flex justify-between items-center px-4 w-full">
+            {/* Left-aligned placeholder (empty for now, or could be another button if needed) */}
+            <div className="w-16 h-16"></div> {/* Match switch camera button size for balance */}
 
-            {/* Botão de Trocar Câmera */}
+            {/* Botão do Obturador (centered) */}
+            <div className="flex-grow flex justify-center"> {/* Use flex-grow to take available space and center */}
+              <button onClick={handleCapture} className="w-24 h-24 rounded-full bg-white/30 ring-4 ring-white flex items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-white" />
+              </button>
+            </div>
+
+            {/* Botão de Trocar Câmera (right-aligned) */}
             <button onClick={switchCamera} className="w-16 h-16 bg-black/50 rounded-full flex items-center justify-center text-white">
               <RefreshCw size={32} />
             </button>

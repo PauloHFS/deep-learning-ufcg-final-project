@@ -37,7 +37,10 @@ function App() {
         ]);
 
         console.log("Loading MobileNet model...");
-        modelInstance = (await mobilenet.load()) as MobileNet;
+        modelInstance = (await mobilenet.load({
+          version: 2,
+          alpha: 1.0,
+        })) as MobileNet;
         console.log("Model loaded.");
 
         setModel(modelInstance);

@@ -97,7 +97,7 @@ function App() {
   };
 
   return (
-    <main className="bg-background min-h-screen w-full flex flex-col items-center justify-center p-4">
+    <main className="bg-background min-h-screen w-full flex flex-col items-center justify-center p-4 sm:p-6 md:p-8">
       <AnimatePresence mode="wait">
         {status === "loading" && (
           <motion.div

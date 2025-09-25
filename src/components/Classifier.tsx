@@ -37,39 +37,54 @@ const Classifier = ({ imageSrc, model, onRetry }: ClassifierProps) => {
   }, [status]);
 
   const handleImageLoad = async () => {
-    if (model && imageRef.current) {
-      console.log("Image loaded, starting classification...");
-      setStatus("classifying");
-      try {
-        // Pré-processamento da imagem
-        const tensor = tf.browser
-          .fromPixels(imageRef.current)
-          .resizeNearestNeighbor([224, 224]) // O tamanho de entrada do seu modelo
-          .toFloat()
-          .expandDims();
+    // 1. Use "guard clauses" no início para validação e clareza.
+    if (!model || !imageRef.current) {
+      console.warn("Modelo ou referência da imagem não estão prontos.");
+      return;
+    }
 
-        // Fazer a predição
-        const predictionTensor = model.predict(tensor) as tf.Tensor;
-        const probabilities = (await predictionTensor.data()) as Float32Array;
-        tf.dispose([tensor, predictionTensor]); // Liberar memória
+    console.log("Imagem carregada, iniciando classificação...");
+    setStatus("classifying");
 
-        // Mapear probabilidades para as classes
-        const results = Array.from(probabilities)
-          .map((probability, i) => ({
-            className: RACE_CLASSES[i],
-            probability,
-          }))
-          .sort((a, b) => b.probability - a.probability)
-          .slice(0, 3); // Top 3
+    // Declara os tensores fora do bloco try para que possam ser acessados no `finally`.
+    let inputTensor: tf.Tensor | undefined;
+    let predictionTensor: tf.Tensor | undefined;
 
-        console.log("Classification results:", results);
-        setPredictions(results);
-        setStatus("done");
-      } catch (error) {
-        console.error("Error during classification:", error);
-        setPredictions([]);
-        setStatus("done");
-      }
+    try {
+      // Pré-processamento (seu código com tf.tidy já está ótimo aqui).
+      inputTensor = tf.tidy(() => {
+        const img = tf.browser.fromPixels(imageRef.current!);
+        const resized = tf.image.resizeBilinear(img, [224, 224]);
+        const floatTensor = resized.toFloat();
+        return floatTensor.expandDims();
+      });
+
+      // Fazer a predição.
+      predictionTensor = model.predict(inputTensor) as tf.Tensor;
+      const probabilities = (await predictionTensor.data()) as Float32Array;
+
+      // 2. Processamento dos resultados (lógica mantida, pois já é eficiente).
+      const results = Array.from(probabilities)
+        .map((probability, i) => ({
+          className: RACE_CLASSES[i],
+          probability,
+        }))
+        .sort((a, b) => b.probability - a.probability)
+        .slice(0, 3); // Top 3
+
+      console.log("Resultados da classificação:", results);
+      setPredictions(results);
+    } catch (error) {
+      console.error("Erro durante a classificação:", error);
+      setPredictions([]); // Limpa predições anteriores em caso de erro.
+    } finally {
+      // 3. Bloco `finally` para garantir a limpeza da memória e atualização do estado.
+      // Este código será executado sempre, com ou sem erros no bloco `try`.
+      if (inputTensor) inputTensor.dispose();
+      if (predictionTensor) predictionTensor.dispose();
+
+      setStatus("done");
+      console.log("Limpeza de memória concluída, classificação finalizada.");
     }
   };
 

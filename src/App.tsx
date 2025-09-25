@@ -32,7 +32,7 @@ function App() {
         ]);
 
         console.log("Loading model...");
-        modelInstance = await tf.loadGraphModel("/public/model/model.json");
+        modelInstance = await tf.loadGraphModel("/model/model.json");
         console.log("Model loaded.");
 
         setModel(modelInstance);

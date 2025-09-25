@@ -6,41 +6,33 @@ import {
   Loader,
   AlertCircle,
 } from "lucide-react";
-// Importa o tipo base para estendê-lo
-import type { MobileNet as MobileNetBase } from "@tensorflow-models/mobilenet";
+import * as tf from '@tensorflow/tfjs';
+import { GraphModel } from '@tensorflow/tfjs'; // Pode ser necessário importar explicitamente
+
 
 import Camera from "./components/Camera";
 import Classifier from "./components/Classifier";
-
-// Adiciona o método dispose ao tipo do modelo, que está ausente no pacote oficial
-type MobileNet = MobileNetBase & {
-  dispose: () => void;
-};
 
 type AppStatus = "loading" | "ready" | "error" | "capturing" | "displaying";
 
 function App() {
   const [status, setStatus] = useState<AppStatus>("loading");
-  const [model, setModel] = useState<MobileNet | null>(null);
+  const [model, setModel] = useState<GraphModel | null>(null);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    let modelInstance: MobileNet | null = null;
+    let modelInstance: GraphModel | null = null;
 
     const loadModel = async () => {
       try {
-        const [mobilenet] = await Promise.all([
-          import("@tensorflow-models/mobilenet"),
+        await Promise.all([
           import("@tensorflow/tfjs-backend-cpu"),
           import("@tensorflow/tfjs-backend-webgl"),
         ]);
 
-        console.log("Loading MobileNet model...");
-        modelInstance = (await mobilenet.load({
-          version: 2,
-          alpha: 1.0,
-        })) as MobileNet;
+        console.log("Loading model...");
+        modelInstance = await tf.loadGraphModel("/public/model/model.json");
         console.log("Model loaded.");
 
         setModel(modelInstance);

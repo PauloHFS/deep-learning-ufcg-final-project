@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Loader, RefreshCcw } from 'lucide-react';
+import { useState, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Loader, RefreshCcw } from "lucide-react";
+import * as tf from "@tensorflow/tfjs";
 
 // Type definitions
 interface Prediction {
@@ -10,34 +11,64 @@ interface Prediction {
 
 interface ClassifierProps {
   imageSrc: string;
-  model: any; // MobileNet model
+  model: tf.GraphModel;
   onRetry: () => void;
 }
 
+const RACE_CLASSES = [
+  "East Asian",
+  "Indian",
+  "Black",
+  "White",
+  "Middle Eastern",
+  "Latino_Hispanic",
+  "Southeast Asian",
+];
+
 const Classifier = ({ imageSrc, model, onRetry }: ClassifierProps) => {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
-  const [status, setStatus] = useState('loading'); // 'loading', 'classifying', 'done'
+  const [status, setStatus] = useState("loading"); // 'loading', 'classifying', 'done'
   const imageRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
-    if (status === 'loading' && imageRef.current && imageRef.current.complete) {
+    if (status === "loading" && imageRef.current && imageRef.current.complete) {
       handleImageLoad();
     }
   }, [status]);
 
   const handleImageLoad = async () => {
     if (model && imageRef.current) {
-      console.log('Image loaded, starting classification...');
-      setStatus('classifying');
+      console.log("Image loaded, starting classification...");
+      setStatus("classifying");
       try {
-        const results = await model.classify(imageRef.current, 3); // Get top 3
-        console.log('Classification results:', results);
+        // Pré-processamento da imagem
+        const tensor = tf.browser
+          .fromPixels(imageRef.current)
+          .resizeNearestNeighbor([224, 224]) // O tamanho de entrada do seu modelo
+          .toFloat()
+          .expandDims();
+
+        // Fazer a predição
+        const predictionTensor = model.predict(tensor) as tf.Tensor;
+        const probabilities = (await predictionTensor.data()) as Float32Array;
+        tf.dispose([tensor, predictionTensor]); // Liberar memória
+
+        // Mapear probabilidades para as classes
+        const results = Array.from(probabilities)
+          .map((probability, i) => ({
+            className: RACE_CLASSES[i],
+            probability,
+          }))
+          .sort((a, b) => b.probability - a.probability)
+          .slice(0, 3); // Top 3
+
+        console.log("Classification results:", results);
         setPredictions(results);
-        setStatus('done');
+        setStatus("done");
       } catch (error) {
         console.error("Error during classification:", error);
         setPredictions([]);
-        setStatus('done');
+        setStatus("done");
       }
     }
   };
@@ -51,18 +82,20 @@ const Classifier = ({ imageSrc, model, onRetry }: ClassifierProps) => {
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.5 }}
     >
-      <h2 className="text-3xl font-bold text-on-surface text-center">Resultado da Análise</h2>
-      
+      <h2 className="text-3xl font-bold text-on-surface text-center">
+        Resultado da Análise
+      </h2>
+
       <div className="relative w-full max-h-[60vh] bg-black rounded-xl overflow-hidden shadow-2xl flex items-center justify-center">
-        <img 
-          src={imageSrc} 
-          alt="captured" 
-          ref={imageRef} 
+        <img
+          src={imageSrc}
+          alt="captured"
+          ref={imageRef}
           className="w-auto h-auto max-w-full max-h-full object-contain transition-opacity duration-300"
           onLoad={handleImageLoad}
-          style={{ opacity: status === 'classifying' ? 0.5 : 1 }}
+          style={{ opacity: status === "classifying" ? 0.5 : 1 }}
         />
-        {status !== 'done' && (
+        {status !== "done" && (
           <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-4">
             <Loader className="w-10 h-10 animate-spin text-white" />
             <p className="text-white text-lg font-semibold">Analisando...</p>
@@ -70,30 +103,50 @@ const Classifier = ({ imageSrc, model, onRetry }: ClassifierProps) => {
         )}
       </div>
 
-      {status === 'done' && predictions.length > 0 && (
-        <motion.div 
+      {status === "done" && predictions.length > 0 && (
+        <motion.div
           className="w-full bg-surface p-6 rounded-xl shadow-lg flex flex-col gap-4"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
         >
-          <h3 className="text-on-surface-secondary text-sm uppercase tracking-wider mb-2">Top 3 Resultados:</h3>
+          <h3 className="text-on-surface-secondary text-sm uppercase tracking-wider mb-2">
+            Top 3 Resultados:
+          </h3>
           <div className="flex flex-col gap-5">
             {predictions.map((prediction, index) => (
               <div key={prediction.className}>
                 <div className="flex justify-between items-center mb-1">
-                  <p className={`font-bold capitalize ${index === 0 ? 'text-primary text-xl' : 'text-on-surface text-lg'}`}>
-                    {index + 1}. {prediction.className.split(', ')[0]}
+                  <p
+                    className={`font-bold capitalize ${
+                      index === 0
+                        ? "text-primary text-xl"
+                        : "text-on-surface text-lg"
+                    }`}
+                  >
+                    {index + 1}. {prediction.className.split(", ")[0]}
                   </p>
-                  <p className={`font-semibold ${index === 0 ? 'text-primary text-lg' : 'text-on-surface-secondary'}`}>
+                  <p
+                    className={`font-semibold ${
+                      index === 0
+                        ? "text-primary text-lg"
+                        : "text-on-surface-secondary"
+                    }`}
+                  >
                     {(prediction.probability * 100).toFixed(1)}%
                   </p>
                 </div>
                 <div className="w-full bg-background rounded-full h-3 overflow-hidden">
-                  <motion.div 
-                    className={`${index === 0 ? 'bg-primary' : 'bg-gray-400'} h-full`}
+                  <motion.div
+                    className={`${
+                      index === 0 ? "bg-primary" : "bg-gray-400"
+                    } h-full`}
                     initial={{ width: 0 }}
                     animate={{ width: `${prediction.probability * 100}%` }}
-                    transition={{ duration: 0.8, delay: index * 0.1, ease: "easeOut" }}
+                    transition={{
+                      duration: 0.8,
+                      delay: index * 0.1,
+                      ease: "easeOut",
+                    }}
                   />
                 </div>
               </div>
@@ -102,10 +155,12 @@ const Classifier = ({ imageSrc, model, onRetry }: ClassifierProps) => {
         </motion.div>
       )}
 
-      {status === 'done' && predictions.length === 0 && (
-         <div className="w-full bg-surface p-6 rounded-xl shadow-lg flex flex-col gap-4 text-center">
-            <p className="text-on-surface-secondary">Não foi possível classificar a imagem.</p>
-         </div>
+      {status === "done" && predictions.length === 0 && (
+        <div className="w-full bg-surface p-6 rounded-xl shadow-lg flex flex-col gap-4 text-center">
+          <p className="text-on-surface-secondary">
+            Não foi possível classificar a imagem.
+          </p>
+        </div>
       )}
 
       <motion.button
